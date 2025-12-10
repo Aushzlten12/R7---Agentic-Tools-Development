@@ -4,3 +4,7 @@ sentence-transformers
 chromadb
 numpy
 termcolor
+pytest
+rank_bm25
+faiss-cpu
+scikit-learn
