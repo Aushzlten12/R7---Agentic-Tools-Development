@@ -1,0 +1,17 @@
+# Entornos virtuales
+venv/
+env/
+.env
+
+# Bytecode de Python
+__pycache__/
+*.py[cod]
+
+# ChromaDB persistence storage
+chroma_db/
+
+# Sistema operativo
+.DS_Store
+
+# test
+pytest.ini
