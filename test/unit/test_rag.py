@@ -1,47 +1,60 @@
 import pytest
-import os
 from src.tools.rag import RAGTool
-from src.config import Config
 
 
-# Mock simple
-@pytest.fixture
-def setup_knowledge_base():
-    # Crear datos
-    dummy_path = "test_knowledge.txt"
-    Config.DATA_PATH = dummy_path
-    with open(dummy_path, "w", encoding="utf-8") as f:
-        f.write("La Universidad tiene tres campus principales.\n")
-        f.write("El curso de Inteligencia Artificial cubre Redes Neuronales.\n")
-        f.write("La nota mínima aprobatoria es 11.\n")
-        f.write("El examen parcial vale 30% del promedio.\n")
+class TestRAGTool:
 
-    yield dummy_path
+    @pytest.fixture
+    def mock_knowledge_base(self):
+        """
+        Simulamos que _load_pdfs ya hizo su trabajo y devolvió esto.
+        Inyectamos las etiquetas [UCSP], [UNMSM] manualmente para probar BM25.
+        """
+        return [
+            "[UCSP] El curso de Algoritmos requiere CS101.",
+            "[UNMSM] El curso de Algoritmos requiere Matemáticas Básicas.",
+            "[UNI] La nota mínima para aprobar es 10.",
+            "[UCSP] La nota mínima para aprobar es 12.",
+            "[GENERAL] La inteligencia artificial es el futuro.",
+        ]
 
-    if os.path.exists(dummy_path):
-        os.remove(dummy_path)
+    def test_initialization_with_injection(self, mock_knowledge_base):
+        """Prueba que la inyección funciona y se indexa."""
+        rag = RAGTool(preloaded_docs=mock_knowledge_base)
+        assert len(rag.documents) == 5
+        assert rag.index.ntotal == 5  # FAISS index size
 
+    def test_disambiguation_by_university(self, mock_knowledge_base):
+        """
+        TEST CRÍTICO PARA R7:
+        Si pregunto por 'Algoritmos' en 'San Marcos', ¿BM25 filtra correctamente?
+        """
+        rag = RAGTool(preloaded_docs=mock_knowledge_base)
 
-def test_rag_initialization(setup_knowledge_base):
-    rag = RAGTool()
-    assert len(rag.documents) == 4
-    assert rag.bm25 is not None
-    assert rag.index is not None
+        # Query incluye el nombre de la U, lo que activa el BM25 para esa etiqueta
+        query = "requisito Algoritmos San Marcos"
 
+        result = rag.run(query, k=1)
 
-def test_rag_hybrid_search_exact_match(setup_knowledge_base):
-    rag = RAGTool()
-    # Una query que coincide casi exacto con BM25
-    query = "nota mínima aprobatoria"
-    result = rag.run(query, k=1)
-    assert "nota mínima aprobatoria es 11" in result
+        # Debería traer el documento de UNMSM, no el de UCSP
+        assert "[UNMSM]" in result
+        assert "Matemáticas Básicas" in result
 
+    def test_semantic_search(self, mock_knowledge_base):
+        """Prueba que los embeddings funcionan (palabras distintas, mismo sentido)."""
+        rag = RAGTool(preloaded_docs=mock_knowledge_base)
 
-def test_rag_hybrid_search_semantic(setup_knowledge_base):
-    rag = RAGTool()
-    # Una query semántica (palabras diferentes, mismo significado)
-    # "calificación para pasar" vs "nota aprobatoria"
-    query = "calificación necesaria para pasar el curso"
-    result = rag.run(query, k=1)
-    # Debería recuperar la de la nota 11 gracias a los embeddings
-    assert "nota mínima" in result
+        # "calificación" vs "nota"
+        query = "calificación aprobatoria en la UNI"
+
+        result = rag.run(query, k=1)
+
+        assert "[UNI]" in result
+        assert "nota mínima" in result
+
+    def test_hybrid_behavior(self, mock_knowledge_base):
+        """Prueba que el sistema no crashea con queries raras."""
+        rag = RAGTool(preloaded_docs=mock_knowledge_base)
+        result = rag.run("palabra_inexistente_xyz_123")
+        # Debería devolver algo (probablemente por score bajo), pero no romper
+        assert isinstance(result, str)

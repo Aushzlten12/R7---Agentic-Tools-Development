@@ -1,0 +1,3 @@
+{"timestamp": "2025-12-11T09:29:49.730336", "query": "Calcula 50 + 50", "steps_trace": [{"tool": "calculator", "output": "100"}], "final_response": "RESPUESTA_SIMULADA_POR_MOCK", "latency_seconds": 0}
+{"timestamp": "2025-12-11T09:29:51.809883", "query": "Puedo llevar AI301?", "steps_trace": [{"tool": "verification", "output": "REJECTED: You cannot take AI301. Missing prerequisites: CS202"}], "final_response": "RESPUESTA_SIMULADA_POR_MOCK", "latency_seconds": 0}
+{"timestamp": "2025-12-11T09:29:54.023397", "query": "Cuantos creditos pide IA?", "steps_trace": [{"tool": "rag", "output": "[UCSP] El curso de IA requiere 100 créditos."}], "final_response": "RESPUESTA_SIMULADA_POR_MOCK", "latency_seconds": 0}

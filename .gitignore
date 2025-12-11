@@ -15,3 +15,6 @@ chroma_db/
 
 # test
 pytest.ini
+
+# cache
+.pytest_cache/
