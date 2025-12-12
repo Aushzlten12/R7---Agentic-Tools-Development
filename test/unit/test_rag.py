@@ -7,14 +7,18 @@ class TestRAGTool:
     @pytest.fixture
     def mock_knowledge_base(self):
         """
-        Simulamos que _load_pdfs ya hizo su trabajo y devolvió esto.
-        Inyectamos las etiquetas [UCSP], [UNMSM] manualmente para probar BM25.
+        Simulamos que _load_pdfs ya hizo su trabajo.
+        IMPORTANTE: Incluimos los nombres completos (San Pablo, San Marcos)
+        en el texto para que BM25 pueda encontrarlos.
         """
         return [
-            "[UCSP] El curso de Algoritmos requiere CS101.",
-            "[UNMSM] El curso de Algoritmos requiere Matemáticas Básicas.",
-            "[UNI] La nota mínima para aprobar es 10.",
-            "[UCSP] La nota mínima para aprobar es 12.",
+            # Doc 1: UCSP
+            "[UCSP] En la Universidad San Pablo el curso de Algoritmos requiere CS101.",
+            # Doc 2: UNMSM (Añadimos "San Marcos" explícitamente)
+            "[UNMSM] En la Universidad San Marcos el curso de Algoritmos requiere Matemáticas Básicas.",
+            # Otros docs
+            "[UNI] La nota mínima para aprobar en la UNI es 10.",
+            "[UCSP] La nota mínima para aprobar en San Pablo es 12.",
             "[GENERAL] La inteligencia artificial es el futuro.",
         ]
 

@@ -16,42 +16,44 @@ class AgentEngine:
         return response, latency
 
     def _execute_explicit_workflow(self, query: str):
-        """
-        Router Explícito (Deterministic DFA).
-        Decide qué herramienta usar basándose en Regex/Keywords.
-        """
         context_messages = []
         trace_steps = []
 
         # --- LÓGICA DE ENRUTAMIENTO (ROUTER) ---
 
-        # CASO 1: Intención Académica/Verificación (Detectar códigos tipo CS101)
-        # Priorizamos esto porque es muy específico
-        if (
-            re.search(r"\b[A-Z]{2}\d{3}\b", query.upper())
-            or "requisito" in query.lower()
-        ):
+        # 1. VERIFICACIÓN: Solo si hay un código de curso explícito (Ej: CS101, MA302)
+        # Quitamos 'or "requisito"' para que las preguntas generales vayan al RAG
+        course_match = re.search(r"\b[A-Z]{2}\d{3}\b", query.upper())
+
+        if course_match:
             print("--> Triggering Verification Tool")
             tool_output = self.tools["verification"].run(query)
-
-            context_messages.append(f"Student Record System: {tool_output}")
+            print(f"[DEBUG] Tool Output: {tool_output}")
+            # Limpiamos el output para el LLM
+            context_messages.append(f"{tool_output}")
             trace_steps.append({"tool": "verification", "output": tool_output})
 
-        # CASO 2: Intención Matemática (Calculadora)
+        # 2. CALCULADORA (Se mantiene igual)
         elif "calcular" in query.lower() or re.search(r"\d+\s*[\+\-\*\/]", query):
+            # ... (código existente) ...
             print("--> Triggering Calculator Tool")
             tool_output = self.tools["calculator"].run(query)
-
-            context_messages.append(f"Calculation Result: {tool_output}")
+            print(f"[DEBUG] Tool Output: {tool_output}")
+            context_messages.append(f"El resultado es: {tool_output}")  # Texto simple
             trace_steps.append({"tool": "calculator", "output": tool_output})
 
-        # CASO 3: Fallback / Pregunta General (RAG)
-        # Si no es verificación ni cálculo, asumimos que es una pregunta sobre documentos
+        # 3. RAG (Todo lo demás cae aquí)
         else:
             print("--> Triggering RAG Tool")
-            tool_output = self.tools["rag"].run(query)
+            # CAMBIO: k=2 (Trae 2 fragmentos) y alpha=0.1 (Prioriza palabras clave al 90%)
+            tool_output = self.tools["rag"].run(query, k=2, alpha=0.1)
 
-            context_messages.append(f"Retrieved Documents: {tool_output}")
+            # Limpieza para el Debug en consola
+            clean_debug = tool_output.replace("\n", " ")[:150]
+            print(f"[DEBUG] Tool Output: {clean_debug}...")
+
+            # Pasamos el output al contexto
+            context_messages.append(tool_output)
             trace_steps.append({"tool": "rag", "output": tool_output})
 
         # --- SÍNTESIS CON LLM ---
