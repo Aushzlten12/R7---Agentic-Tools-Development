@@ -16,7 +16,7 @@ Para esta entrega (E1), el enrutamiento es determinista para establecer un basel
 
 ## Instalación y Ejecución
 
-Usando el archivo `Makefile` incluido para gestionar el ciclo de vida de la aplicación.
+Usando el archivo `Makefile` incluido para gestionar el ciclo de vida de la aplicación. En este caso se ha usado un entorno virtual de python y no Docker.
 
 1. Entorno Local
 
