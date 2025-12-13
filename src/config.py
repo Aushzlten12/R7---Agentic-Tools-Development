@@ -2,7 +2,7 @@ import os
 
 
 class Config:
-    # VOLVEMOS A FLAN-T5 (Arquitectura Seq2Seq)
+    # Modelo PreEntrenado
     LLM_MODEL_ID = "google/flan-t5-large"
 
     # Modelo de Embeddings
@@ -14,7 +14,5 @@ class Config:
     LOG_DIR = os.path.join(BASE_DIR, "logs")
 
     # Parámetros RAG
-    # Flan-T5 tiene una ventana pequeña (512 tokens), así que los chunks
-    # no pueden ser muy grandes. 500 caracteres está bien.
     CHUNK_SIZE = 500
     K_RETRIEVAL = 2

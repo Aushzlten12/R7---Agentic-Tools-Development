@@ -8,25 +8,24 @@ from src.config import Config
 
 
 def main():
-    # 1. Asegurar que existe el directorio de logs
+    # Directorio de logs
     os.makedirs(Config.LOG_DIR, exist_ok=True)
 
-    print("=== Initializing Agentic System (CPU Optimized) ===")
+    print("Iniciando Agente")
 
-    # 2. Inicializar Servicios (LLM)
+    # Inicializar LLM service
     llm_service = LLMService()
 
-    # 3. Inicializar Herramientas
-    # Aquí se carga el RAG con tus PDFs usando PDFPlumber
+    # Inicializar Herramientas
     tools = [CalculatorTool(), RAGTool(), VerificationTool()]
 
-    # 4. Inicializar Agente
+    # Inicializar Agente
     agent = AgentEngine(llm_service, tools)
 
     print("\nSistema listo. Escribe 'exit' para salir.")
     print("-" * 50)
 
-    # 5. Loop de consola
+    # Loop de consola
     while True:
         user_query = input("User> ")
         if user_query.lower() in ["exit", "quit"]:

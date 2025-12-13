@@ -1,47 +1,58 @@
-# Makefile Universal (Windows/Linux/Mac)
-
 IMAGE_NAME = agentic-r7
 VENV_NAME = venv
 
-# --- Detección de Sistema Operativo ---
 ifeq ($(OS),Windows_NT)
-    # Windows
     PYTHON = $(VENV_NAME)/Scripts/python.exe
 else
-    # Linux / Mac
     PYTHON = $(VENV_NAME)/bin/python3
 endif
 
-# --- Definición de Comandos ---
 PIP = $(PYTHON) -m pip
 PYTEST = $(PYTHON) -m pytest
 
-.PHONY: all install run test clean docker-build docker-run setup
+# Scripts de evaluación
+EVAL_RAG_SCRIPT = test/experiments/evaluate.py
+EVAL_AGENT_SCRIPT = test/experiments/evaluate_agent.py
+
+.PHONY: all install run test eval eval-agent eval-agent-real clean docker-build docker-run setup
 
 all: install run
 
-# 1. Crear entorno virtual
 $(VENV_NAME):
 	python -m venv $(VENV_NAME)
 
-# 2. Instalar dependencias
 install: $(VENV_NAME)
 	$(PIP) install -r requirements.txt
 
 setup: install
 
-# 3. Ejecutar el Agente
-# NOTA: Usamos -m src.main para que Python reconozca los imports correctamente
 run:
 	@echo "=== Ejecutando Agente ==="
 	$(PYTHON) -m src.main
 
-# 4. Ejecutar Tests
 test:
 	@echo "=== Ejecutando Tests ==="
 	$(PYTEST) test/ -v
 
-# 5. Limpieza
+# Eval: solo RAG (Recall@k / MRR)
+eval: install
+	@echo "=== Ejecutando Evaluación RAG (Recall@k / MRR) ==="
+	$(PYTHON) $(EVAL_RAG_SCRIPT)
+
+# Eval: agente completo (router + tools + latencia) usando MockLLM 
+eval-agent: install
+	@echo "=== Ejecutando Evaluación del Agente (MockLLM) ==="
+	$(PYTHON) $(EVAL_AGENT_SCRIPT)
+
+# Eval: agente completo usando el LLM real 
+eval-agent-real: install
+	@echo "=== Ejecutando Evaluación del Agente (LLM real) ==="
+ifeq ($(OS),Windows_NT)
+	powershell -NoProfile -ExecutionPolicy Bypass -Command "$$env:USE_REAL_LLM='1'; & '$(PYTHON)' '$(EVAL_AGENT_SCRIPT)'"
+else
+	USE_REAL_LLM=1 $(PYTHON) $(EVAL_AGENT_SCRIPT)
+endif
+
 clean:
 	@echo "=== Limpiando archivos temporales ==="
 	rm -rf __pycache__
@@ -55,7 +66,6 @@ clean:
 	rm -rf test/integration/__pycache__
 	rm -rf logs/
 
-# --- Docker ---
 docker-build:
 	docker build -t $(IMAGE_NAME) .
 

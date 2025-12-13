@@ -10,10 +10,6 @@ from sentence_transformers import SentenceTransformer
 from src.tools.base import BaseTool
 from src.config import Config
 
-
-# -----------------------------
-# Normalización / Tokenización
-# -----------------------------
 STOPWORDS_ES = {
     "que",
     "de",
@@ -83,22 +79,19 @@ class RAGTool(BaseTool):
         if not self.documents:
             self.documents = ["Error: No se pudieron cargar documentos."]
 
-        # 1) Embeddings (Dense)
+        # Embeddings
         self.embedder = SentenceTransformer(Config.EMBEDDING_MODEL_ID)
         embeddings = self.embedder.encode(self.documents, convert_to_numpy=True)
         faiss.normalize_L2(embeddings)
         self.index = faiss.IndexFlatIP(embeddings.shape[1])
         self.index.add(embeddings)
 
-        # 2) BM25 (Sparse) con tokenización mejorada
+        # BM25 (Sparse) con tokenización mejorada
         tokenized_corpus = [tokenize(doc) for doc in self.documents]
         self.bm25 = BM25Okapi(tokenized_corpus)
 
         print(f"[RAG] Indexados {len(self.documents)} fragmentos enriquecidos.")
 
-    # -----------------------------
-    # PDF Loading / Chunking
-    # -----------------------------
     def _detect_header_map(self, row_norm):
         """
         Detecta cabecera de columnas y devuelve un dict con índices:
@@ -145,7 +138,6 @@ class RAGTool(BaseTool):
 
     def _clean_credits(self, s: str) -> str:
         s = (s or "").strip()
-        # s puede ser "5" o "5.0" o "5 " etc
         m = re.search(r"\d+", s)
         return m.group(0) if m else "N/A"
 
@@ -158,6 +150,7 @@ class RAGTool(BaseTool):
 
     def _load_pdfs(self):
         chunks = []
+        # En este caso para el E1 solo se usará un PDF del plan de estudio de la UNI
         uni_map = {
             "sanMarcos": "[UNMSM San Marcos]",
             "2018-N6": "[UNI Universidad Nacional de Ingenieria]",
@@ -204,10 +197,10 @@ class RAGTool(BaseTool):
                                 row_norm = [normalize_text(c) for c in clean_row]
                                 first_cell = row_norm[0] if row_norm else ""
 
-                                # ---- 1) DETECCIÓN DE HEADERS DE SECCIÓN (ciclos / electivos) ----
+                                # DETECCIÓN DE HEADERS DE SECCIÓN (ciclos / electivos)
                                 # "Primer ciclo", "Tercer ciclo", etc.
                                 if "ciclo" in first_cell and "total" not in first_cell:
-                                    # guarda el texto original (más bonito)
+                                    # guarda el texto original
                                     current_header = (
                                         clean_row[0] if clean_row[0] else "Ciclo"
                                     )
@@ -221,19 +214,18 @@ class RAGTool(BaseTool):
                                     current_header = "ELECTIVOS COMPLEMENTARIOS"
                                     continue
 
-                                # ---- 2) DETECCIÓN DE CABECERA DE COLUMNAS ----
+                                # DETECCIÓN DE CABECERA DE COLUMNAS
                                 newmap = self._detect_header_map(row_norm)
                                 if newmap:
                                     colmap = newmap
                                     continue
 
-                                # Ignora cosas tipo "total"
                                 if first_cell in {"total", "totales"}:
                                     continue
 
-                                # ---- 3) EXTRACCIÓN PRINCIPAL ----
+                                # EXTRACCIÓN PRINCIPAL
                                 if "UNI" in tag:
-                                    # Si aún no detectamos columnas, intentamos un fallback suave
+
                                     if colmap is None:
                                         # Busca una celda que parezca código
                                         code_idx = None
@@ -294,7 +286,7 @@ class RAGTool(BaseTool):
                                     if not nombre:
                                         continue
 
-                                    # ---- 4) ASIGNACIÓN DE TIPO (según header actual) ----
+                                    # ASIGNACIÓN DE TIPO DE CURSO
                                     tipo_curso = "Desconocido"
                                     ciclo_info = current_header
 
@@ -321,7 +313,7 @@ class RAGTool(BaseTool):
                                     chunks.append(structured_text)
 
                                 else:
-                                    # Otros documentos: fallback simple
+                                    # Otros documentos
                                     row_text = " | ".join(clean_row)
                                     chunks.append(f"{tag} {row_text}")
 
@@ -330,9 +322,6 @@ class RAGTool(BaseTool):
 
         return chunks
 
-    # -----------------------------
-    # Scoring helpers
-    # -----------------------------
     def _normalize_scores(self, scores):
         arr = np.array(scores, dtype="float32")
         if arr.size == 0:
@@ -344,28 +333,23 @@ class RAGTool(BaseTool):
 
     def _extract_code_from_query(self, query: str):
         # Captura códigos tipo CC202, CC0A1, BMA02, etc.
-        # (mayúsculas o minúsculas)
         m = re.search(r"\b([A-Za-z]{2,4}[0-9A-Za-z]{2,4})\b", query or "")
         return m.group(1).upper() if m else None
 
-    # -----------------------------
-    # Run
-    # -----------------------------
     def run(self, query: str, k=3, alpha=0.45) -> str:
         """
         alpha = peso del dense. (1-alpha) = peso del BM25.
-        Para tu caso, alpha 0.35-0.6 suele ir mejor que 0.1.
         """
         query_norm = normalize_text(query)
 
-        # 0) Exact match por código si aparece en la query
+        # Exact match por código si aparece en la query
         code = self._extract_code_from_query(query)
         if code:
             exact = [d for d in self.documents if f"({code})" in d]
             if exact:
                 return "\n\n".join(exact[:k])
 
-        # 1) Atajos tipo “filtro” para listados por ciclo/electivos
+        # Atajos tipo “filtro” para listados por ciclo/electivos
         cycle_map = {
             "primer ciclo": "Primer ciclo",
             "segundo ciclo": "Segundo ciclo",
@@ -418,7 +402,7 @@ class RAGTool(BaseTool):
                 else "No encontré electivos complementarios."
             )
 
-        # 2) Híbrido: Dense + BM25
+        # Híbrido: Dense + BM25
         q_vec = self.embedder.encode([query], convert_to_numpy=True)
         faiss.normalize_L2(q_vec)
         d_scores, d_idx = self.index.search(q_vec, len(self.documents))

@@ -13,12 +13,10 @@ class LLMService:
             "text2text-generation",
             model=self.model,
             tokenizer=self.tokenizer,
-            # CAMBIO: Quitamos max_length de aquí para evitar conflictos
         )
 
     def generate_response(self, query: str, context: str) -> str:
-        # Prompt Estricto
-        # Reducimos un poco el contexto para mejorar la velocidad (1200 chars)
+
         safe_context = context[:1200]
 
         input_text = (
@@ -30,7 +28,7 @@ class LLMService:
 
         output = self.pipe(
             input_text,
-            max_new_tokens=100,  # CAMBIO: Usamos max_new_tokens en vez de max_length
+            max_new_tokens=100,
             do_sample=False,
             repetition_penalty=1.2,
         )
